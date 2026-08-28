@@ -11,7 +11,15 @@ from homeassistant.components.calendar import (
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, CONF_CALENDAR_ID, CONF_CALENDAR_NAME
+from .const import (
+    DOMAIN,
+    CONF_CALENDAR_NAME,
+    CONF_CALENDAR_USERS,
+    CONF_CALENDAR_LABELS,
+    CONF_SYNC_MODE,
+    SYNC_MODE_INDIVIDUAL,
+    UNASSIGNED_MEMBER_ID,
+)
 from .coordinator import TimeTreeCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -20,11 +28,25 @@ async def async_setup_entry(hass, entry, async_add_entities):
     """Set up the calendar entry."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
     
-    entity = TimeTreeCalendarEntity(
-        coordinator, 
-        entry.data[CONF_CALENDAR_NAME]
+    calendar_name = entry.data[CONF_CALENDAR_NAME]
+    if entry.data.get(CONF_SYNC_MODE) != SYNC_MODE_INDIVIDUAL:
+        async_add_entities([TimeTreeCalendarEntity(coordinator, calendar_name)])
+        return
+
+    users = entry.data.get(CONF_CALENDAR_USERS, [])
+    entities = [
+        TimeTreeCalendarEntity(coordinator, f"{calendar_name} ({user['name']})", user["id"])
+        for user in users
+        if user.get("id") is not None and user.get("name")
+    ]
+    entities.append(
+        TimeTreeCalendarEntity(
+            coordinator,
+            f"{calendar_name} (Unassigned)",
+            UNASSIGNED_MEMBER_ID,
+        )
     )
-    async_add_entities([entity])
+    async_add_entities(entities)
 
 
 class TimeTreeCalendarEntity(CalendarEntity):
@@ -33,17 +55,31 @@ class TimeTreeCalendarEntity(CalendarEntity):
     _attr_has_entity_name = True
     _attr_supported_features = CalendarEntityFeature.CREATE_EVENT
 
-    def __init__(self, coordinator: TimeTreeCoordinator, name: str):
+    def __init__(self, coordinator: TimeTreeCoordinator, name: str, member_id=None):
         """Initialize the entity."""
         self.coordinator = coordinator
         self._attr_name = name
-        self._attr_unique_id = f"{coordinator.calendar_id}"
+        self._member_id = member_id
+        self._labels = {
+            label["id"]: label
+            for label in coordinator.entry.data.get(CONF_CALENDAR_LABELS, [])
+            if label.get("id") is not None
+        }
+        self._attr_unique_id = f"{coordinator.calendar_id}_{member_id or 'all'}"
+
+    @property
+    def extra_state_attributes(self):
+        """Return the labels available in the TimeTree calendar."""
+        return {
+            "member_id": self._member_id,
+            "labels": [label for label in self._labels.values() if label.get("name")],
+        }
     
     @property
     def event(self):
         """Return the next upcoming event."""
         now = dt_util.now()
-        events = self.coordinator.data or []
+        events = self._filtered_events()
         
         future_events = []
         for e in events:
@@ -77,7 +113,7 @@ class TimeTreeCalendarEntity(CalendarEntity):
             await self.coordinator.async_request_refresh()
             
         events = []
-        for event_data in self.coordinator.data or []:
+        for event_data in self._filtered_events():
             ev_start = event_data["start"]
             ev_end = event_data["end"]
             
@@ -123,6 +159,8 @@ class TimeTreeCalendarEntity(CalendarEntity):
             "end_at": end_ms,
             "timezone": str(dt_util.DEFAULT_TIME_ZONE)
         }
+        if self._member_id not in (None, UNASSIGNED_MEMBER_ID):
+            event_payload["attendees"] = [self._member_id]
 
         try:
             await self.coordinator.api.async_create_event(self.coordinator.calendar_id, event_payload)
@@ -133,12 +171,26 @@ class TimeTreeCalendarEntity(CalendarEntity):
             raise HomeAssistantError(f"TimeTree API Failed: {err}") from err
 
     def _build_calendar_event(self, event_data):
+        label = self._labels.get(event_data.get("label_id"))
+        description = event_data["description"] or ""
+        if label and label.get("name"):
+            description = f"Label: {label['name']}\n{description}".strip()
+
         return CalendarEvent(
             summary=event_data["summary"],
             start=event_data["start"],
             end=event_data["end"],
             location=event_data["location"],
-            description=event_data["description"],
+            description=description or None,
             uid=event_data["uid"],
             rrule=event_data["recurrences"][0] if event_data["recurrences"] else None
         )
+
+    def _filtered_events(self):
+        """Return all events or only events assigned to this member."""
+        events = self.coordinator.data or []
+        if self._member_id is None:
+            return events
+        if self._member_id == UNASSIGNED_MEMBER_ID:
+            return [event for event in events if not event.get("attendees", [])]
+        return [event for event in events if self._member_id in event.get("attendees", [])]

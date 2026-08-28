@@ -22,6 +22,7 @@
                 "description": "Choose which calendar to sync and set the update frequency.",
                 "data": {
                     "calendar_id": "Calendar",
+                    "sync_mode": "Event allocation",
                     "scan_interval": "Update Interval (minutes)"
                 }
             }

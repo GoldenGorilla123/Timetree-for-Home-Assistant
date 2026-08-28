@@ -28,6 +28,7 @@ class TimeTreeCoordinator(DataUpdateCoordinator):
             name=DOMAIN,
             update_interval=timedelta(minutes=interval_minutes),
         )
+        self.entry = entry
         self.api = api
         self.calendar_id = calendar_id
         

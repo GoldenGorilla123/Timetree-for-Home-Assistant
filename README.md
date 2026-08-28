@@ -31,7 +31,8 @@ This Home Assistant integration relies heavily on the reverse-engineered API log
 
 
 * **Sync Monitoring**: Includes a diagnostic sensor (`sensor.timetree_last_updated`) showing exactly when the last successful sync occurred.
-* **Multi-Calendar Support**: Select which specific TimeTree calendar to sync during setup.
+* **Flexible Event Allocation**: During setup, sync all events to one calendar or create a separate Home Assistant calendar for each TimeTree member.
+* **Labels**: TimeTree labels are included in event descriptions and exposed as calendar entity attributes.
 * **Authentication**: Supports standard Email/Password login.
 
 ---
@@ -65,7 +66,10 @@ This Home Assistant integration relies heavily on the reverse-engineered API log
 3. Search for **TimeTree Calendar**.
 4. Enter your **TimeTree Email** and **Password**.
 5. Select the **Calendar** you wish to sync.
-6. Set your desired **Update Interval** (default: 60 min).
+6. Choose **One combined calendar** or **Separate calendar per person**.
+7. Set your desired **Update Interval** (default: 60 min).
+
+In individual mode, events are allocated using TimeTree's `attendees` field. An event assigned to multiple people appears in each person's calendar. Events without attendees appear only in the additional `Family (Unassigned)` calendar. Labels such are shown in the event description and the calendar event's description.
 
 ### Changing Settings (Update Interval)
 

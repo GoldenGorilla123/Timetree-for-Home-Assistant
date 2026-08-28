@@ -22,6 +22,7 @@
                 "description": "Wählen Sie den zu synchronisierenden Kalender und die Aktualisierungshäufigkeit.",
                 "data": {
                     "calendar_id": "Kalender",
+                    "sync_mode": "Ereigniszuordnung",
                     "scan_interval": "Aktualisierungsintervall (Minuten)"
                 }
             }

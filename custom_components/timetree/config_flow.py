@@ -12,6 +12,11 @@ from .const import (
     DOMAIN, 
     CONF_CALENDAR_ID, 
     CONF_CALENDAR_NAME, 
+    CONF_CALENDAR_USERS,
+    CONF_CALENDAR_LABELS,
+    CONF_SYNC_MODE,
+    SYNC_MODE_COMBINED,
+    SYNC_MODE_INDIVIDUAL,
     CONF_SCAN_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
@@ -77,11 +82,13 @@ class TimeTreeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if user_input is not None:
                 selected_cal_id = user_input[CONF_CALENDAR_ID]
                 selected_cal_name = "TimeTree Calendar"
+                selected_calendar = None
                 
                 if self._calendars:
                     for c in self._calendars:
                         if str(c["id"]) == selected_cal_id:
                             selected_cal_name = c["name"]
+                            selected_calendar = c
                             break
 
                 return self.async_create_entry(
@@ -90,6 +97,9 @@ class TimeTreeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         **self._auth_data,
                         CONF_CALENDAR_ID: selected_cal_id,
                         CONF_CALENDAR_NAME: selected_cal_name,
+                        CONF_SYNC_MODE: user_input.get(CONF_SYNC_MODE, SYNC_MODE_COMBINED),
+                        CONF_CALENDAR_USERS: (selected_calendar or {}).get("users", []),
+                        CONF_CALENDAR_LABELS: (selected_calendar or {}).get("labels", []),
                         CONF_SCAN_INTERVAL: user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
                     },
                 )
@@ -107,6 +117,15 @@ class TimeTreeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     selector.SelectSelectorConfig(
                         options=calendar_options,
                         mode=selector.SelectSelectorMode.DROPDOWN
+                    )
+                ),
+                vol.Required(CONF_SYNC_MODE, default=SYNC_MODE_COMBINED): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            {"value": SYNC_MODE_COMBINED, "label": "One combined calendar"},
+                            {"value": SYNC_MODE_INDIVIDUAL, "label": "Separate calendar per person"},
+                        ],
+                        mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
                 vol.Required(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): selector.NumberSelector(

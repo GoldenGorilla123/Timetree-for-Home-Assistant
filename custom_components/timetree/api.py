@@ -75,7 +75,28 @@ class TimeTreeApi:
         response.raise_for_status()
         data = response.json()
         return [
-            {"id": c["id"], "name": c["name"], "code": c.get("alias_code")}
+            {
+                "id": c["id"],
+                "name": c["name"],
+                "code": c.get("alias_code"),
+                "users": [
+                    {
+                        "id": user.get("user_id", user.get("id")),
+                        "name": user.get("name", "Unknown"),
+                    }
+                    for user in c.get("calendar_users", [])
+                    if user.get("deactivated_at") is None
+                ],
+                "labels": [
+                    {
+                        "id": label.get("id"),
+                        "name": label.get("name") or f"Label {label.get('id')}",
+                        "color": label.get("color"),
+                    }
+                    for label in c.get("calendar_labels", [])
+                    if label.get("id") is not None
+                ],
+            }
             for c in data.get("calendars", [])
             if c.get("deactivated_at") is None
         ]
@@ -144,6 +165,7 @@ class TimeTreeApi:
             "start_timezone": event_data.get("timezone", "UTC"),
             "end_at": event_data.get("end_at"),
             "end_timezone": event_data.get("timezone", "UTC"),
+            "attendees": event_data.get("attendees", []),
             "uuid": str(uuid.uuid4())
         }
 
@@ -216,5 +238,7 @@ class TimeTreeApi:
             "location": event_data.get("location"),
             "description": event_data.get("note"),
             "recurrences": event_data.get("recurrences"),
+            "attendees": event_data.get("attendees", []),
+            "label_id": event_data.get("label_id"),
             "updated_at": event_data.get("updated_at")
         }
