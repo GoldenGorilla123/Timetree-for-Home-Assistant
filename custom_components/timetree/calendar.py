@@ -129,46 +129,77 @@ class TimeTreeCalendarEntity(CalendarEntity):
         return events
 
     async def async_create_event(self, **kwargs):
-        """Add a new event to the calendar."""
-        summary = kwargs.get("summary", "New Event")
-        description = kwargs.get("description", "")
-        location = kwargs.get("location", "")
-        start_dt = kwargs.get("start_date_time")
-        end_dt = kwargs.get("end_date_time")
-        
-        if not start_dt:
+            """Add a new event to the calendar."""
+            _LOGGER.debug("TimeTree create event kwargs: %s", kwargs)
+    
+            summary = kwargs.get("summary", "")
+            description = kwargs.get("description", "")
+            location = kwargs.get("location", "")
+    
+            dt_start = kwargs.get("dtstart") or kwargs.get("start_date_time")
+            dt_end = kwargs.get("dtend") or kwargs.get("end_date_time")
             start_date = kwargs.get("start_date")
             end_date = kwargs.get("end_date")
-            all_day = True
-            dt_start = datetime.combine(start_date, datetime.min.time()).replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
-            dt_end = datetime.combine(end_date, datetime.min.time()).replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
-        else:
-            all_day = False
-            dt_start = start_dt
-            dt_end = end_dt
-
-        start_ms = int(dt_start.timestamp() * 1000)
-        end_ms = int(dt_end.timestamp() * 1000)
-        
-        event_payload = {
-            "summary": summary,
-            "description": description,
-            "location": location,
-            "all_day": all_day,
-            "start_at": start_ms,
-            "end_at": end_ms,
-            "timezone": str(dt_util.DEFAULT_TIME_ZONE)
-        }
-        if self._member_id not in (None, UNASSIGNED_MEMBER_ID):
-            event_payload["attendees"] = [self._member_id]
-
-        try:
-            await self.coordinator.api.async_create_event(self.coordinator.calendar_id, event_payload)
-            await self.coordinator.async_request_refresh()
-        except Exception as err:
-            _LOGGER.error("Error creating event: %s", err)
-            # This raises a visible error in the HA UI
-            raise HomeAssistantError(f"TimeTree API Failed: {err}") from err
+    
+            if dt_start is not None and dt_end is not None:
+                all_day = False
+            elif start_date is not None and end_date is not None:
+                all_day = True
+                dt_start = datetime.combine(
+                    start_date,
+                    datetime.min.time(),
+                    tzinfo=dt_util.DEFAULT_TIME_ZONE,
+                )
+                dt_end = datetime.combine(
+                    end_date,
+                    datetime.min.time(),
+                    tzinfo=dt_util.DEFAULT_TIME_ZONE,
+                )
+            else:
+                raise HomeAssistantError(
+                    "TimeTree: no valid event start/end was provided"
+                )
+    
+            _LOGGER.debug(
+                "TimeTree creating event: summary=%s, start=%s, end=%s, all_day=%s",
+                summary,
+                dt_start,
+                dt_end,
+                all_day,
+            )
+    
+            start_ms = int(dt_start.timestamp() * 1000)
+            end_ms = int(dt_end.timestamp() * 1000)
+            timezone_name = str(dt_start.tzinfo or dt_util.DEFAULT_TIME_ZONE)
+    
+            event_payload = {
+                "summary": summary,
+                "description": description,
+                "location": location,
+                "all_day": all_day,
+                "start_at": start_ms,
+                "end_at": end_ms,
+                "start_timezone": timezone_name,
+                "end_timezone": str(dt_end.tzinfo or dt_util.DEFAULT_TIME_ZONE),
+                "timezone": timezone_name,
+                "attendees": [],
+            }
+    
+            if self._labels:
+                event_payload["label_id"] = next(iter(self._labels))
+    
+            if self._member_id not in (None, UNASSIGNED_MEMBER_ID):
+                event_payload["attendees"] = [self._member_id]
+    
+            try:
+                await self.coordinator.api.async_create_event(
+                    self.coordinator.calendar_id,
+                    event_payload,
+                )
+                await self.coordinator.async_request_refresh()
+            except Exception as err:
+                _LOGGER.error("Error creating event: %s", err)
+                raise HomeAssistantError(f"TimeTree API Failed: {err}") from err
 
     def _build_calendar_event(self, event_data):
         label = self._labels.get(event_data.get("label_id"))

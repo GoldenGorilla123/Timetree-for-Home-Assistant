@@ -48,7 +48,7 @@ class TimeTreeApi:
                 raise TimeTreeAuthError("CSRF token not found in page HTML")
                 return False
             self._csrf_token = match.group(1)
-            _LOGGER.debug("CSRF Token retrieval successful.")
+            _LOGGER.debug("CSRF Token retrieval successful. CRSF Token: %s", self._csrf_token)
             return True
         except requests.RequestException as e:
             _LOGGER.error("CSRF Token retrieval error: %s", e)
@@ -177,7 +177,7 @@ class TimeTreeApi:
         if not self._session_id:
             self._login()
 
-        url = f"{API_BASEURI}/calendar/{calendar_id}/events"
+        url = f"{API_BASEURI}/calendar/{calendar_id}/event"
         headers = {
             "Content-Type": "application/json",
             "X-Timetreea": API_USER_AGENT,
@@ -185,18 +185,20 @@ class TimeTreeApi:
         }
         
         payload = {
-            "type": 0,
             "category": 1,
-            "title": event_data.get("summary", "New Event"),
-            "note": event_data.get("description", ""),
-            "location": event_data.get("location", ""),
-            "all_day": event_data.get("all_day", False),
-            "start_at": event_data.get("start_at"),
-            "start_timezone": event_data.get("timezone", "UTC"),
-            "end_at": event_data.get("end_at"),
-            "end_timezone": event_data.get("timezone", "UTC"),
+            "title": event_data.get("summary") or "empty name",
+            "all_day": bool(event_data.get("all_day", False)),
+            "start_at": int(event_data.get("start_at", 0)),
+            "start_timezone": event_data.get("start_timezone") or "UTC",
+            "end_at": int(event_data.get("end_at", 0)),
+            "end_timezone": event_data.get("end_timezone") or "UTC",
+            "note": event_data.get("description") or "",
+            "location": event_data.get("location") or "",
             "attendees": event_data.get("attendees", []),
-            "uuid": str(uuid.uuid4())
+            "recurrences": [],
+            "alerts": [],
+            "attachment": {"virtual_user_attendees": []},
+            "label_id": event_data.get("label_id", 1),
         }
 
         # DEBUG LOGGING FOR PAYLOAD
