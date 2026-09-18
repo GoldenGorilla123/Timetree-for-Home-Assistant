@@ -1,5 +1,5 @@
 """Calendar platform for TimeTree."""
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import logging
 from os import sync
 from zoneinfo import ZoneInfo
@@ -139,23 +139,21 @@ class TimeTreeCalendarEntity(CalendarEntity):
     
             dt_start = kwargs.get("dtstart") or kwargs.get("start_date_time")
             dt_end = kwargs.get("dtend") or kwargs.get("end_date_time")
-            start_date = kwargs.get("start_date")
-            end_date = kwargs.get("end_date")
     
-            if dt_start is not None and dt_end is not None:
+            if isinstance(dt_start, datetime) and isinstance(dt_end, datetime):
                 all_day = False
-            elif start_date is not None and end_date is not None:
+            elif isinstance(dt_start, date) and isinstance(dt_end, date):
                 all_day = True
                 dt_start = datetime.combine(
-                    start_date,
+                    dt_start,
                     datetime.min.time(),
                     tzinfo=dt_util.DEFAULT_TIME_ZONE,
                 )
                 dt_end = datetime.combine(
-                    end_date,
+                    dt_end,
                     datetime.min.time(),
                     tzinfo=dt_util.DEFAULT_TIME_ZONE,
-                )
+                ) - timedelta(days=1)
             else:
                 raise HomeAssistantError(
                     "TimeTree: no valid event start/end was provided"
@@ -168,7 +166,7 @@ class TimeTreeCalendarEntity(CalendarEntity):
                 dt_end,
                 all_day,
             )
-    
+
             start_ms = int(dt_start.timestamp() * 1000)
             end_ms = int(dt_end.timestamp() * 1000)
             timezone_name = str(dt_start.tzinfo or dt_util.DEFAULT_TIME_ZONE)
