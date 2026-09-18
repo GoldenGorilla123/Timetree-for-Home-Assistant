@@ -3,6 +3,7 @@ import logging
 import uuid
 import requests
 import json
+import re
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -23,8 +24,35 @@ class TimeTreeApi:
         self._hass = hass
         self._email = email
         self._password = password
+        self._csrf_token = None
         self._session_id = None
         self._session = requests.Session()
+
+    def _extractcsrftoken(self):
+        url = "https://timetreeapp.com/"
+
+        try:
+            response = self._session.get(url, timeout=10)
+
+            if response.status_code != 200:
+                _LOGGER.error("CSRF Token failed. Status: %s, Response: %s", response.status_code, response.text,)
+                raise TimeTreeAuthError("Unable to open TimeTree Webpage")
+
+            match = re.search(
+                r'<meta[^>]*name=["\']csrf-token["\'][^>]*content=["\']([^"\']+)["\']',
+                response.text,
+                re.IGNORECASE,
+            )
+            if not match:
+                _LOGGER.error("CSRF token not found in page HTML")
+                raise TimeTreeAuthError("CSRF token not found in page HTML")
+                return False
+            self._csrf_token = match.group(1)
+            _LOGGER.debug("CSRF Token retrieval successful.")
+            return True
+        except requests.RequestException as e:
+            _LOGGER.error("CSRF Token retrieval error: %s", e)
+            raise TimeTreeAuthError(f"CSRF Token retrieval error: {e}")
 
     def _login(self):
         """Log in to TimeTree and get session ID."""
@@ -51,6 +79,7 @@ class TimeTreeApi:
             self._session_id = response.cookies.get("_session_id")
             self._session.cookies.set("_session_id", self._session_id)
             _LOGGER.debug("Login successful. Session ID acquired.")
+            self._extractcsrftoken()
             return True
         except requests.RequestException as e:
             _LOGGER.error("Login connection error: %s", e)
@@ -151,7 +180,8 @@ class TimeTreeApi:
         url = f"{API_BASEURI}/calendar/{calendar_id}/events"
         headers = {
             "Content-Type": "application/json",
-            "X-Timetreea": API_USER_AGENT
+            "X-Timetreea": API_USER_AGENT,
+            "X-CSRF-Token": self._csrf_token,
         }
         
         payload = {
