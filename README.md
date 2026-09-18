@@ -1,28 +1,16 @@
 # TimeTree Calendar for Home Assistant
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-[![Maintainer](https://img.shields.io/badge/maintainer-acdcnow-blue)](https://github.com/acdcnow)
-[![Version](https://img.shields.io/badge/version-1.1.3-green)]()
-
-This is a custom component for **Home Assistant** that integrates with **TimeTree**. It creates a **Calendar entity** in Home Assistant that syncs with your chosen TimeTree calendar, allowing you to view **and create** events directly from your dashboard.
+This is a custom component for **Home Assistant** that integrates with **TimeTree**. It creates a **Calendar entity** in Home Assistant that syncs with your chosen TimeTree calendar, allowing you to view, create and delete events directly from your dashboard.
 
 The integration fetches events based on a configurable polling interval (default: 60 minutes) and provides a "Last Updated" sensor to monitor sync status.
 
----
 
-## 🏆 Credits & Huge Kudos
-
-**Massive thanks to [eoleedi**](https://github.com/eoleedi) for creating the [TimeTree-Exporter](https://github.com/eoleedi/TimeTree-Exporter).
-
-This Home Assistant integration relies heavily on the reverse-engineered API logic and data structures provided by their excellent work. Without `timetree-exporter`, this integration would not be possible!
-
----
 
 ## ✨ Features
 
 * **Calendar Entity (Read & Write)**:
 * View upcoming events in Home Assistant.
-* **Create new events** in TimeTree directly from Home Assistant (via the Dashboard or Automations).
+* **Create/Delete events** in TimeTree directly from Home Assistant (via the Dashboard or Automations).
 
 
 * **Configurable Auto-Sync**:
@@ -69,7 +57,7 @@ This Home Assistant integration relies heavily on the reverse-engineered API log
 6. Choose **One combined calendar** or **Separate calendar per person**.
 7. Set your desired **Update Interval** (default: 60 min).
 
-In individual mode, events are allocated using TimeTree's `attendees` field. An event assigned to multiple people appears in each person's calendar. Events without attendees appear only in the additional `Family (Unassigned)` calendar. Labels such are shown in the event description and the calendar event's description.
+In seperate calendar mode, events are allocated using TimeTree's `attendees` field. An event assigned to multiple people appears in each person's calendar. Events without attendees appear only in the additional `Calendar Name (Unassigned)` calendar. Labels such are shown in the event description.
 
 ### Changing Settings (Update Interval)
 
@@ -84,21 +72,8 @@ You can change how often Home Assistant fetches data without reinstalling:
 
 ## 🐞 Troubleshooting & Debugging
 
-If you encounter issues (e.g., "Unknown Error" or events not syncing), you can enable **verbose debug logging** to see exactly what is happening with the TimeTree API.
-
-1. Open your `configuration.yaml` file.
-2. Add the following logger configuration:
-
-```yaml
-logger:
-  default: info
-  logs:
-    custom_components.timetree: debug
-
-```
-
-3. Restart Home Assistant.
-4. Check your **Home Assistant Logs** (Settings > System > Logs). You will now see detailed messages, including:
+If you encounter issues (e.g., "Unknown Error" or events not syncing), you can enable **debug logging** to see exactly what is happening with the TimeTree API.
+Check your **Home Assistant Logs** (Settings > System > Logs). You will now see detailed messages, including:
 * API Login attempts and Session ID retrieval.
 * Full JSON payloads being sent to TimeTree (useful for checking Create Event issues).
 * Raw responses and error codes from TimeTree.
@@ -109,20 +84,9 @@ logger:
 
 ### Creating Events
 
-You can create events using the standard `calendar.create_event` service in scripts or automations:
+You can create/delete events using the standard `calendar.create_event` or `calendar.delete_event` service in scripts or automations.
 
-```yaml
-service: calendar.create_event
-target:
-  entity_id: calendar.timetree_family
-data:
-  summary: "Family Dinner"
-  description: "Pizza night!"
-  start_date_time: "2025-12-31 18:00:00"
-  end_date_time: "2025-12-31 20:00:00"
-  location: "Home"
 
-```
 
 ### Monitoring
 
@@ -135,5 +99,4 @@ Check the **Last Updated** sensor (e.g., `sensor.timetree_calendar_last_updated`
 * **Cloud Polling**: This integration requires an active internet connection to communicate with `timetreeapp.com`.
 * **Rate Limits**: While the interval is configurable down to 5 minutes, be mindful of TimeTree's API limits. If you experience errors, increase the interval.
 * **Internal API**: This integration uses TimeTree's internal API (simulating the web client). Changes to their backend could impact functionality.
-
 ---

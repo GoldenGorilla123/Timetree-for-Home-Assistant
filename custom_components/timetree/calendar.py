@@ -203,6 +203,11 @@ class TimeTreeCalendarEntity(CalendarEntity):
     async def async_delete_event(self, uid, recurrence_id=None, recurrence_range=None):
         """Delete an event from the calendar."""
 #        uid = kwargs.get("uid") or kwargs.get("event_id")
+
+        _LOGGER.debug(
+                        "TimeTree deleting event: uid=%s",
+                        uid,
+                    )
         if uid is None:
             raise HomeAssistantError("TimeTree: event uid is required for deletion.")
 
