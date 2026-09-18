@@ -1,6 +1,7 @@
 """Calendar platform for TimeTree."""
 from datetime import datetime, date
 import logging
+from os import sync
 from zoneinfo import ZoneInfo
 
 from homeassistant.components.calendar import (
@@ -53,7 +54,7 @@ class TimeTreeCalendarEntity(CalendarEntity):
     """Representation of a TimeTree Calendar."""
 
     _attr_has_entity_name = True
-    _attr_supported_features = CalendarEntityFeature.CREATE_EVENT
+    _attr_supported_features = (CalendarEntityFeature.CREATE_EVENT | CalendarEntityFeature.DELETE_EVENT)
 
     def __init__(self, coordinator: TimeTreeCoordinator, name: str, member_id=None):
         """Initialize the entity."""
@@ -200,6 +201,22 @@ class TimeTreeCalendarEntity(CalendarEntity):
             except Exception as err:
                 _LOGGER.error("Error creating event: %s", err)
                 raise HomeAssistantError(f"TimeTree API Failed: {err}") from err
+
+    async def async_delete_event(self, uid, recurrence_id=None, recurrence_range=None):
+        """Delete an event from the calendar."""
+#        uid = kwargs.get("uid") or kwargs.get("event_id")
+        if uid is None:
+            raise HomeAssistantError("TimeTree: event uid is required for deletion.")
+
+        try:
+            await self.coordinator.api.async_delete_event(
+                self.coordinator.calendar_id,
+                uid,
+            )
+            await self.coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error("Error deleting event: %s", err)
+            raise HomeAssistantError(f"TimeTree API Failed: {err}") from err
 
     def _build_calendar_event(self, event_data):
         label = self._labels.get(event_data.get("label_id"))

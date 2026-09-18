@@ -209,6 +209,7 @@ class TimeTreeApi:
         if response.status_code == 401:
             _LOGGER.debug("Token expired during create event. Re-logging in.")
             self._login()
+            headers["X-CSRF-Token"] = self._csrf_token
             response = self._session.post(url, json=payload, headers=headers)
 
         # DEBUG LOGGING FOR RESPONSE
@@ -219,6 +220,35 @@ class TimeTreeApi:
             raise Exception(f"API Error {response.status_code}: {response.text}")
             
         return response.json()
+
+    def _delete_event(self, calendar_id, event_id):
+        """Delete an event from TimeTree."""
+        if not self._session_id:
+            self._login()
+
+        url = f"{API_BASEURI}/calendar/{calendar_id}/event/{event_id}"
+        headers = {
+            "Content-Type": "application/json",
+            "X-Timetreea": API_USER_AGENT,
+            "X-CSRF-Token": self._csrf_token,
+        }
+
+        response = self._session.delete(url, headers=headers)
+
+        if response.status_code == 401:
+            self._login()
+            headers["X-CSRF-Token"] = self._csrf_token
+            response = self._session.delete(url, headers=headers)
+
+        if response.status_code not in (200, 204):
+            _LOGGER.error(
+                "Failed to delete event. Status: %s, Body: %s",
+                response.status_code,
+                response.text,
+            )
+            raise Exception(f"API Error {response.status_code}: {response.text}")
+
+        return response.text
 
     async def async_validate_and_get_calendars(self):
         return await self._hass.async_add_executor_job(self._do_validate)
@@ -232,6 +262,9 @@ class TimeTreeApi:
 
     async def async_create_event(self, calendar_id, event_payload):
         return await self._hass.async_add_executor_job(self._create_event, calendar_id, event_payload)
+
+    async def async_delete_event(self, calendar_id, event_id):
+        return await self._hass.async_add_executor_job(self._delete_event, calendar_id, event_id)
 
     @staticmethod
     def parse_event(event_data):
